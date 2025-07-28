@@ -1,0 +1,36 @@
+.achievements {
+  padding: 2rem 1rem 2rem 1rem;
+  background: #181a20;
+  border-radius: 1.5rem;
+  margin-bottom: 2rem;
+  color: #fff;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.10);
+}
+.achievements h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1.2rem;
+  color: #00ffa3;
+}
+.achievements ul {
+  list-style: disc inside;
+  color: #b0ffdf;
+  font-size: 1.1rem;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0;
+}
+.fade-in {
+  opacity: 0;
+  animation: fadeInUp 1.2s ease-out forwards;
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

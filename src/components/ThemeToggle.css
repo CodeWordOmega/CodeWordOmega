@@ -1,0 +1,25 @@
+.theme-toggle {
+  position: fixed;
+  top: 1.2rem;
+  right: 1.2rem;
+  background: #23272f;
+  color: #00ffa3;
+  border: none;
+  border-radius: 2rem;
+  padding: 0.6rem 1.4rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px 0 #00ffa344;
+  z-index: 1000;
+  transition: background 0.2s, color 0.2s;
+}
+.theme-toggle.light {
+  background: #fff;
+  color: #181a20;
+  border: 2px solid #00ffa3;
+}
+.theme-toggle:hover {
+  background: #00ffa3;
+  color: #181a20;
+}

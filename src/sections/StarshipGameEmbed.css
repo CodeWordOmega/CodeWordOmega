@@ -1,0 +1,39 @@
+.starship-embed-section {
+  padding: 2.5rem 1rem 2rem 1rem;
+  background: #181a20;
+  border-radius: 1.5rem;
+  margin-bottom: 2rem;
+  color: #fff;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.10);
+  text-align: center;
+}
+.starship-embed-section h2 {
+  color: #00ffa3;
+  font-size: 2rem;
+  margin-bottom: 1.2rem;
+}
+.starship-embed-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+.starship-iframe {
+  width: 480px;
+  height: 640px;
+  border: 3px solid #00ffa3;
+  border-radius: 1rem;
+  background: #101214;
+  box-shadow: 0 4px 16px 0 #00ffa344;
+}
+.starship-embed-desc {
+  color: #b0ffdf;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+@media (max-width: 600px) {
+  .starship-iframe {
+    width: 98vw;
+    height: 60vw;
+    min-height: 320px;
+  }
+}

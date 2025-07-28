@@ -1,0 +1,63 @@
+.welcome-modal-overlay {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  background: rgba(18, 10, 40, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.7s;
+}
+
+.welcome-modal {
+  background: linear-gradient(135deg, #2a0036 60%, #4b1e6d 100%);
+  border-radius: 2rem;
+  box-shadow: 0 8px 40px 0 #000a, 0 0 0 4px #7c3aed44;
+  padding: 2.5rem 2.5rem 2rem 2.5rem;
+  text-align: center;
+  color: #fff;
+  max-width: 420px;
+  width: 90vw;
+  animation: popIn 0.5s;
+}
+
+.welcome-modal h1 {
+  font-size: 2.1rem;
+  margin-bottom: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 16px #7c3aed88;
+}
+
+.welcome-modal p {
+  font-size: 1.1rem;
+  margin-bottom: 2.2rem;
+  color: #e0d7ff;
+  line-height: 1.6;
+}
+
+.welcome-enter-btn {
+  background: linear-gradient(90deg, #7c3aed 60%, #a855f7 100%);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 1.5rem;
+  padding: 0.8rem 2.5rem;
+  box-shadow: 0 2px 16px #7c3aed55;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.welcome-enter-btn:hover, .welcome-enter-btn:focus {
+  background: linear-gradient(90deg, #a855f7 60%, #7c3aed 100%);
+  transform: scale(1.04);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}

@@ -1,0 +1,93 @@
+.featured-projects {
+  padding: 3rem 1rem 2rem 1rem;
+  background: #181a20;
+  border-radius: 1.5rem;
+  margin-bottom: 2rem;
+  color: #fff;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.18);
+}
+.featured-projects h2 {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: #00ffa3;
+}
+.project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+}
+.project-card {
+  background: #23272f;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px 0 #00ffa344;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  max-width: 340px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  opacity: 0;
+  transform: translateY(40px) scale(0.98);
+  animation: fadeInUpCard 1.2s cubic-bezier(.23,1.01,.32,1) forwards;
+}
+.project-card:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 8px 32px 0 #00ffa388;
+}
+.project-card img {
+  width: 100%;
+  border-radius: 0.7rem;
+  margin-bottom: 1.2rem;
+}
+.project-card h3 {
+  margin: 0.5rem 0 0.2rem 0;
+  font-size: 1.2rem;
+  color: #00ffa3;
+}
+.project-card p {
+  color: #e0e0e0;
+  margin-bottom: 0.7rem;
+}
+.project-card ul {
+  list-style: disc inside;
+  color: #b0ffdf;
+  font-size: 1rem;
+  padding-left: 0;
+}
+.project-card:nth-child(1) { animation-delay: 0.1s; }
+.project-card:nth-child(2) { animation-delay: 0.3s; }
+.project-card:nth-child(3) { animation-delay: 0.5s; }
+@keyframes fadeInUpCard {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.project-filters {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.project-filters button {
+  background: #23272f;
+  color: #00ffa3;
+  border: none;
+  border-radius: 2rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.project-filters button.active, .project-filters button:hover {
+  background: #00ffa3;
+  color: #181a20;
+}

@@ -1,0 +1,25 @@
+.social-float {
+  position: fixed;
+  left: 1.2rem;
+  bottom: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  z-index: 1200;
+}
+.social-float a {
+  display: block;
+  background: #23272f;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px 0 #00ffa344;
+  padding: 0.5rem;
+  transition: background 0.2s;
+}
+.social-float a:hover {
+  background: #00ffa3;
+}
+.social-float img {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
