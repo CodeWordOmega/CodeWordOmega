@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.5, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>Starship Shooter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #0a0a1e;
+            font-family: 'Comic Neue', cursive;
+            color: #ffffff;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            border: none;
+            z-index: 1;
+        }
+        #endScene, #statsScene {
+            display: none;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 2;
+        }
+        #endScene {
+            top: 20%;
+            font-size: 24px;
+        }
+        #statsScene {
+            top: 50%;
+            font-size: 18px;
+            background: rgba(10, 10, 30, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 90%;
+        }
+        #statsScene p {
+            margin: 10px 0;
+        }
+        #playAgainButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            font-family: 'Comic Neue', cursive;
+        }
+        #playAgainButton:hover {
+            background: #00cc00;
+        }
+        @media (max-width: 768px) {
+            #endScene, #statsScene {
+                text-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+  <!-- DEMO PATCH: AI, invincibility, input block, and silence for demo mode -->
+<script>
+(function() {
+  // Only run in demo mode
+  if (!/[?&]demo(=|&|$)/.test(window.location.search)) return;
+
+  // Block all user input
+  ['keydown','keyup','keypress','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend','contextmenu'].forEach(evt =>
+    window.addEventListener(evt, e => { e.stopImmediatePropagation(); e.preventDefault(); }, true)
+  );
+
+  // Mute all sound/music
+  window.AudioContext = function() { return { resume:()=>{}, suspend:()=>{}, close:()=>{}, createOscillator:()=>({}), createGain:()=>({}), destination:{} }; };
+  window.AudioContext.prototype = {};
+  window.webkitAudioContext = window.AudioContext;
+  var silence = function(){};
+  [ 'play', 'pause', 'load', 'volume', 'muted', 'currentTime', 'src', 'loop' ].forEach(function(prop) {
+    Object.defineProperty(HTMLAudioElement.prototype, prop, { get: function() { return (prop==='muted')?true:0; }, set: function(){} });
+  });
+  HTMLAudioElement.prototype.play = silence;
+  HTMLAudioElement.prototype.pause = silence;
+  HTMLAudioElement.prototype.load = silence;
+
+  // Wait for game to load, then patch
+  function patchWhenReady() {
+    if (typeof window.draw !== 'function' || typeof window.resetGame !== 'function' || typeof window.drawStarship !== 'function') {
+      setTimeout(patchWhenReady, 50);
+      return;
+    }
+
+    // Patch drawStarship to always draw at AI-updated position
+    var origDrawStarship = window.drawStarship;
+    window.drawStarship = function(x, y, scale) {
+      if (window.location.search.includes('demo') && typeof window.starship !== "undefined") {
+        
+        // Always draw at AI-updated position
+        return origDrawStarship.call(this, window.starship.x + window.starship.width/2, window.starship.y + window.starship.height/2, scale);
+      } else {
+        return origDrawStarship.apply(this, arguments);
+      }
+    };
+    // Patch draw for AI, invincibility, and overlays
+    var origDraw = window.draw;
+    window.draw = function() {
+      var result = origDraw.apply(this, arguments);
+      try {
+        if (window.location.search.includes('demo')) {
+          // Invincibility
+          var maxH = window.maxHealth || 5;
+          if (typeof starship !== "undefined") starship.health = maxH;
+          window.health = maxH;
+          if (window.starship) window.starship.health = maxH;
+          if (typeof window.playerHealth !== 'undefined') window.playerHealth = maxH;
+          if (typeof window.setHealth === 'function') window.setHealth(maxH);
+          if (typeof shieldActive !== 'undefined') shieldActive = true;
+          if (typeof shieldCooldown !== 'undefined') shieldCooldown = 0;
+
+          // Remove enemy/boss lasers near starship
+          if (typeof enemyLasers !== 'undefined' && typeof starship !== 'undefined') {
+            for (let i = enemyLasers.length - 1; i >= 0; i--) {
+              let l = enemyLasers[i];
+              let dx = l.x - (starship.x + starship.width / 2);
+              let dy = l.y - (starship.y + starship.height / 2);
+              if (Math.sqrt(dx*dx + dy*dy) < 60) enemyLasers.splice(i, 1);
+            }
+          }
+          if (typeof boss !== 'undefined' && boss && Array.isArray(boss.lasers) && typeof starship !== 'undefined') {
+            for (let i = boss.lasers.length - 1; i >= 0; i--) {
+              let l = boss.lasers[i];
+              let dx = l.x - (starship.x + starship.width / 2);
+              let dy = l.y - (starship.y + starship.height / 2);
+              if (Math.sqrt(dx*dx + dy*dy) < 60) boss.lasers.splice(i, 1);
+            }
+          }
+
+          // --- DEMO AI ---
+          if (!window._demoAI) {
+            window._demoAI = {
+              target: null,
+              lastTargetTime: 0,
+              burstShooting: false,
+              burstEnd: 0,
+              nextBurst: 0,
+              jitter: 0,
+              lastJitter: 0
+            };
+          }
+          const ai = window._demoAI;
+          const now = Date.now();
+          const aiSpeed = 4 + Math.random() * 2;
+          const jitterAmount = 10;
+
+          function findClosestPowerup() {
+            let pickups = [];
+            if (Array.isArray(healthPickups)) pickups = pickups.concat(healthPickups);
+            if (typeof weaponUpgrades !== 'undefined' && Array.isArray(weaponUpgrades)) pickups = pickups.concat(weaponUpgrades);
+            return pickups.length
+              ? pickups.reduce((closest, p) => {
+                  let sx = starship.x + starship.width / 2, sy = starship.y + starship.height / 2;
+                  let dx = (p.x || 0) - sx, dy = (p.y || 0) - sy;
+                  let d = Math.sqrt(dx*dx + dy*dy);
+                  if (!closest || d < closest.dist) return { p, dist: d };
+                  return closest;
+                }, null).p
+              : null;
+          }
+          function findClosestEnemy() {
+            if (!Array.isArray(enemies) || !enemies.length) return null;
+            let sx = starship.x + starship.width / 2, sy = starship.y + starship.height / 2;
+            return enemies.reduce((closest, e) => {
+              let dx = e.x - sx, dy = e.y - sy;
+              let d = Math.sqrt(dx*dx + dy*dy);
+              if (!closest || d < closest.dist) return { e, dist: d };
+              return closest;
+            }, null)?.e || null;
+          }
+          // Pick a new target every 2-4 seconds, or if we reached the last one
+          if (
+            !ai.target ||
+            now - ai.lastTargetTime > 2000 + Math.random() * 2000 ||
+            (ai.target && Math.abs(starship.x - ai.target.x) < 20 && Math.abs(starship.y - ai.target.y) < 20)
+          ) {
+            let powerup = findClosestPowerup();
+            let bossTarget = (typeof boss !== 'undefined' && boss && boss.health > 0) ? boss : null;
+            let enemyTarget = findClosestEnemy();
+            if (powerup) {
+              ai.target = { x: powerup.x - starship.width / 2, y: powerup.y - starship.height / 2 };
+            } else if (bossTarget) {
+              ai.target = { x: bossTarget.x - starship.width / 2, y: bossTarget.y + bossTarget.height + 100 };
+            } else if (enemyTarget) {
+              ai.target = { x: enemyTarget.x - starship.width / 2, y: enemyTarget.y + enemyTarget.height + 60 };
+            } else {
+              ai.target = {
+                x: 60 + Math.random() * (canvasWidth - 120),
+                y: 120 + Math.random() * (canvasHeight - 220)
+              };
+            }
+            ai.lastTargetTime = now;
+            ai.jitter = (Math.random() - 0.5) * jitterAmount;
+            ai.lastJitter = now;
+          }
+          let tx = ai.target.x + ai.jitter, ty = ai.target.y + ai.jitter;
+
+          // Move toward the target
+          if (typeof starship !== "undefined") {
+            let dx = tx - starship.x, dy = ty - starship.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 5) {
+              let step = Math.min(aiSpeed, dist);
+              starship.x += dx / dist * step;
+              starship.y += dy / dist * step;
+            }
+            // Clamp to play area
+            starship.x = Math.max(0, Math.min(canvasWidth - starship.width, starship.x));
+            starship.y = Math.max(0, Math.min(canvasHeight - 100, starship.y));
+            starship.health = window.maxHealth || 5;
+          }
+
+          // AI burst shooting: shoot at boss/enemy if in line of fire
+          if (typeof shootButton !== "undefined") {
+            let shouldShoot = false;
+            let sx = starship.x + starship.width / 2, sy = starship.y + starship.height / 2;
+            if (typeof boss !== 'undefined' && boss && boss.health > 0) {
+              if (Math.abs(sx - boss.x) < boss.width * 0.7 && sy > boss.y) shouldShoot = true;
+            } else {
+              let enemy = findClosestEnemy();
+              if (enemy && Math.abs(sx - enemy.x) < enemy.width * 0.7 && sy > enemy.y) shouldShoot = true;
+            }
+            if (!ai.burstShooting && (shouldShoot || now > ai.nextBurst)) {
+              ai.burstShooting = true;
+              ai.burstEnd = now + 400 + Math.random()*300;
+              ai.nextBurst = now + 1200 + Math.random()*800;
+            }
+            shootButton.active = ai.burstShooting;
+            if (ai.burstShooting && now > ai.burstEnd) ai.burstShooting = false;
+          }
+
+          // Hide overlays if they appear
+          var endScene = document.getElementById('endScene');
+          if (endScene) endScene.style.display = 'none';
+          var statsScene = document.getElementById('statsScene');
+          if (statsScene) statsScene.style.display = 'none';
+          var gameOverOverlay = document.getElementById('gameOverOverlay');
+          if (gameOverOverlay) gameOverOverlay.style.display = 'none';
+        }
+      } catch(e) {}
+      return result;
+    };
+
+    // Patch resetGame to always restore full health
+    var origReset = window.resetGame;
+    window.resetGame = function() {
+      var maxH = window.maxHealth || 5;
+      if (window.starship) window.starship.health = maxH;
+      window.health = maxH;
+      if (typeof window.playerHealth !== 'undefined') window.playerHealth = maxH;
+      if (typeof window.setHealth === 'function') window.setHealth(maxH);
+      if (typeof shieldActive !== 'undefined') shieldActive = true;
+      if (typeof shieldCooldown !== 'undefined') shieldCooldown = 0;
+      return origReset.apply(this, arguments);
+    };
+  }
+  patchWhenReady();
+})();
+</script>  
+</script>
+    <div id="info" style="display: none;">Score: <span id="score">0</span> | Health: <span id="health">3</span> | Level: <span id="level">1</span></div>
+    <div id="achievements" style="display: none;">
+        <h2>Achievements</h2>
+        <div id="ace-pilot" class="achievement">Ace Pilot: Defeat 10 enemies in under 30 seconds</div>
+        <div id="sharp-shooter" class="achievement">Sharp Shooter: Destroy 5 asteroids without missing</div>
+        <div id="high-score" class="achievement">High Score: Reach 200 points</div>
+    </div>
+    <div id="endScene">
+        <h2>Mission Complete!</h2>
+        <p>You defeated the final boss and landed safely!</p>
+    </div>
+    <div id="statsScene">
+        <h2>Game Statistics</h2>
+        <p>Final Score: <span id="finalScore"></span></p>
+        <p>Enemies Defeated: <span id="enemiesDefeated"></span></p>
+        <p>Health Collected: <span id="healthCollected"></span></p>
+        <h3>Achievements Unlocked:</h3>
+        <div id="achievementsList"></div>
+        <button id="playAgainButton">Play Again</button>
+    </div>
+    <script>
+        let starship, stars, asteroids, enemies, playerLasers, enemyLasers, particles, boss, fireworks, healthPickups;
+        let score = 0;
+        let health = 3;
+        let maxHealth = 5;
+        let level = 1;
+        let gameOver = false;
+        let isTransitioning = false;
+        let gameWon = false;
+        let showStats = false;
+        let gameOverDelay = 0;
+        let animationFrame = 0;
+        let gameStartTime = 0;
+        let shotsFired = 0;
+        let asteroidsDestroyed = 0;
+        let enemiesDefeated = 0;
+        let healthCollected = 0;
+        let scaleFactor, uiScaleFactor, canvasWidth, canvasHeight;
+        let joystick = { active: false, x: 0, y: 0, startX: 0, startY: 0, touchId: null };
+        let shootButton = { active: false, x: 0, y: 0, radius: 0, touchId: null };
+        let restartButton = { x: 0, y: 0, width: 0, height: 0, active: false };
+        let playAgainButton = { x: 0, y: 0, width: 0, height: 0 };
+        let lastShootTime = 0;
+        let lastFrameTime = 0;
+        let lastTouchTime = 0;
+        let bossActive = false;
+        let landingStartTime = 0;
+        let landingDuration = 3000;
+        let mothershipStartTime = 0;
+        let mothershipDuration = 2000;
+        let joystickTouchId = null;
+        let shootButtonTouchId = null;
+        let victoryParticles = [];
+        let statsAnimationStart = 0;
+        let displayedScore = 0;
+        let displayedEnemies = 0;
+        let displayedHealth = 0;
+        let endingPhase = 'animation';
+        let endingStartTime = 0;
+        const animationDuration = 7000;
+        const fadeDuration = 1000;
+        const shootInterval = 200;
+        const frameInterval = 1000 / 20;
+        const maxAsteroids = 6;
+        const maxEnemies = 8; // Increased from 3 to 8 for more frequent enemy ships
+        const maxLasers = 5;
+        const maxParticles = 15;
+        const maxFireworks = 25;
+        const maxHealthPickups = 5;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let skyGradient;
+        let backgroundMusic;
+
+        // Audio setup
+        let audioCtx = null;
+        let backgroundGainNode = null;
+
+        // Music loading flags
+        let musicLoading = false;
+        let musicLoadFailed = false;
+
+        let engineOscillator = null;
+        let engineGain = null;
+        let engineLFO = null;
+        let engineSoundActive = false;
+
+        // Play engine sound
+        function playEngineSound() {
+            if (!audioCtx || engineSoundActive) return;
+            engineOscillator = audioCtx.createOscillator();
+            engineGain = audioCtx.createGain();
+            engineLFO = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+
+            // Engine base pitch and range
+            const baseFreq = 80; // Hz
+            const maxFreq = 100; // Hz
+            const minFreq = 60;  // Hz
+            engineOscillator.type = 'sawtooth';
+            engineOscillator.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+
+            // LFO for pitch modulation
+            engineLFO.type = 'sine';
+            engineLFO.frequency.setValueAtTime(0.18, audioCtx.currentTime); // slow modulation
+            lfoGain.gain.setValueAtTime((maxFreq - minFreq) / 2, audioCtx.currentTime); // LFO amplitude
+            engineLFO.connect(lfoGain);
+            lfoGain.connect(engineOscillator.frequency);
+
+            // LFO for volume modulation (subtle)
+            const lfoGainVol = audioCtx.createGain();
+            const lfoVol = audioCtx.createOscillator();
+            lfoVol.type = 'sine';
+            lfoVol.frequency.setValueAtTime(0.09, audioCtx.currentTime); // even slower
+            lfoGainVol.gain.setValueAtTime(0.03, audioCtx.currentTime); // subtle volume swing
+            lfoVol.connect(lfoGainVol);
+            lfoGainVol.connect(engineGain.gain);
+
+            // Set base volume
+            engineGain.gain.setValueAtTime(0.025, audioCtx.currentTime); // Lowered from 0.07
+
+            engineOscillator.connect(engineGain);
+            engineGain.connect(audioCtx.destination);
+            engineOscillator.start();
+            engineLFO.start();
+            lfoVol.start();
+            engineSoundActive = true;
+
+            // Store LFOs for cleanup
+            engineOscillator._lfo = engineLFO;
+            engineOscillator._lfoVol = lfoVol;
+            engineOscillator._lfoGain = lfoGain;
+            engineOscillator._lfoGainVol = lfoGainVol;
+        }
+
+        // Stop engine sound
+        function stopEngineSound() {
+            if (engineOscillator && engineSoundActive) {
+                // Fade out
+                engineGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                setTimeout(() => {
+                    try {
+                        engineOscillator.stop();
+                        engineOscillator.disconnect();
+                        engineGain.disconnect();
+                        if (engineOscillator._lfo) engineOscillator._lfo.stop();
+                        if (engineOscillator._lfoVol) engineOscillator._lfoVol.stop();
+                        if (engineOscillator._lfo) engineOscillator._lfo.disconnect();
+                        if (engineOscillator._lfoVol) engineOscillator._lfoVol.disconnect();
+                        if (engineOscillator._lfoGain) engineOscillator._lfoGain.disconnect();
+                        if (engineOscillator._lfoGainVol) engineOscillator._lfoGainVol.disconnect();
+                    } catch (e) {}
+                    engineOscillator = null;
+                    engineGain = null;
+                    engineLFO = null;
+                    engineSoundActive = false;
+                }, 600);
+            }
+        }
+
+        // Initialize audio context
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            // Start engine sound immediately (and keep it running under music)
+            playEngineSound();
+            // Start loading music in background
+            if (!backgroundMusic) {
+                backgroundMusic = loadSound('music/inception-inspired-dark-melodic-techno-mix-night-trains-155050.mp3', () => {
+                    backgroundMusic.setVolume(0.23, 1.0); // Louder music
+                    backgroundMusic.loop();
+                });
+                setTimeout(() => {
+                    if (backgroundMusic && !backgroundMusic.isPlaying()) {
+                        backgroundMusic.setVolume(0, 0);
+                    }
+                }, 100);
+            }
+        }
+
+        // Shoot sound: Sci-fi laser "pew"
+        function playShootSound() {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // Explosion sound: Enhanced sci-fi explosion with sharp pulse, noise, and deep rumble
+        function playExplosionSound() {
+            if (!audioCtx) return;
+
+            // 1. Sharp pulse for initial blast
+            const pulse = audioCtx.createOscillator();
+            const pulseGain = audioCtx.createGain();
+            pulse.type = 'square';
+            pulse.frequency.setValueAtTime(2000, audioCtx.currentTime);
+            pulse.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.1);
+            pulseGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            pulseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            pulse.connect(pulseGain);
+            pulseGain.connect(audioCtx.destination);
+            pulse.start();
+            pulse.stop(audioCtx.currentTime + 0.1);
+
+            // 2. Noise burst for explosion texture
+            const bufferSize = audioCtx.sampleRate * 0.4;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.4);
+            noise.connect(filter);
+            filter.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.start();
+            noise.stop(audioCtx.currentTime + 0.4);
+
+            // 3. Deep low-frequency rumble for impact
+            const oscillator = audioCtx.createOscillator();
+            const rumbleGain = audioCtx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(120, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.5);
+            rumbleGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            rumbleGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            oscillator.connect(rumbleGain);
+            rumbleGain.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // Health pickup sound: Rising chime
+        function playPowerupSound() {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // Boss victory sound: Short uplifting jingle
+        function playBossVictorySound() {
+            if (!audioCtx || !backgroundMusic) return;
+            // Lower background music volume
+            backgroundMusic.setVolume(0.05);
+            const victoryNotes = [
+                523.25, // C5
+                659.25, // E5
+                783.99, // G5
+                1046.50, // C6
+                783.99, // G5
+                659.25, // E5
+                523.25, // C5
+                659.25  // E5
+            ];
+            const noteDuration = 0.25; // 2s total for 8 notes
+            victoryNotes.forEach((freq, index) => {
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime + index * noteDuration);
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime + index * noteDuration);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (index + 1) * noteDuration);
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start(audioCtx.currentTime + index * noteDuration);
+                oscillator.stop(audioCtx.currentTime + (index + 1) * noteDuration);
+            });
+            // Restore background music volume after jingle
+            setTimeout(() => {
+                if (backgroundMusic && !gameOver && !gameWon) {
+                    backgroundMusic.setVolume(0.15);
+                }
+            }, 2000);
+        }
+
+        // Background music: Load and play MP3 file
+        function startBackgroundMusic() {
+            if (backgroundMusic) {
+                backgroundMusic.setVolume(0.15);
+                backgroundMusic.loop();
+            }
+        }
+
+        // Stop background music
+        function stopBackgroundMusic() {
+            if (backgroundMusic && backgroundMusic.isPlaying()) {
+                backgroundMusic.stop();
+            }
+            // Optionally, keep engine sound running always, or fade out here if you want silence on game over
+        }
+
+        function setupTouchHandlers() {
+            document.addEventListener('touchstart', (event) => {
+                handleTouchStart(event);
+            }, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
+        }
+
+        function setup() {
+            updateCanvasSize();
+            let canvas = createCanvas(canvasWidth, canvasHeight);
+            canvas.style('display', 'block');
+            if (isMobile) {
+                pixelDensity(1);
+            }
+            frameRate(20);
+            skyGradient = drawingContext.createLinearGradient(0, 0, 0, canvasHeight);
+            skyGradient.addColorStop(0, '#0a0a1e');
+            skyGradient.addColorStop(1, '#2a0036');
+            initializeGame();
+            setupTouchHandlers();
+            // Removed initAudio();
+        }
+
+        function updateCanvasSize() {
+            canvasWidth = windowWidth;
+            canvasHeight = windowHeight;
+            scaleFactor = isMobile ? min(canvasWidth / 300, canvasHeight / 200) : min(canvasWidth / 600, canvasHeight / 400);
+            uiScaleFactor = isMobile ? min(canvasWidth / 500, canvasHeight / 333) : min(canvasWidth / 600, canvasHeight / 400);
+        }
+
+        function initializeGame() {
+            starship = {
+                x: canvasWidth / 2,
+                y: canvasHeight - 100 * scaleFactor,
+                width: 30 * scaleFactor,
+                height: 40 * scaleFactor,
+                speed: 7 * scaleFactor
+            };
+            stars = [];
+            for (let i = 0; i < 20; i++) {
+                stars.push({
+                    x: random(canvasWidth),
+                    y: random(canvasHeight),
+                    vy: 0.5 * scaleFactor,
+                    baseSize: random(2, 4)
+                });
+            }
+            asteroids = [];
+            enemies = [];
+            playerLasers = [];
+            enemyLasers = [];
+            particles = [];
+            healthPickups = [];
+            fireworks = [];
+            victoryParticles = [];
+            boss = null;
+            bossActive = false;
+            gameStartTime = millis();
+            joystick.x = 80 * uiScaleFactor;
+            joystick.y = canvasHeight - 80 * uiScaleFactor;
+            shootButton.x = canvasWidth - 80 * uiScaleFactor;
+            shootButton.y = canvasHeight - 80 * uiScaleFactor;
+            shootButton.radius = 20 * uiScaleFactor;
+            restartButton.x = canvasWidth / 2;
+            restartButton.y = canvasHeight / 2 + 50 * uiScaleFactor;
+            restartButton.width = 120 * uiScaleFactor;
+            restartButton.height = 40 * uiScaleFactor;
+            playAgainButton.x = canvasWidth / 2;
+            playAgainButton.y = canvasHeight - 100 * uiScaleFactor;
+            playAgainButton.width = 120 * uiScaleFactor;
+            playAgainButton.height = 40 * uiScaleFactor;
+            joystick.active = false;
+            joystick.touchId = null;
+            shootButton.active = false;
+            shootButton.touchId = null;
+            isTransitioning = false;
+            gameOverDelay = 0;
+            gameWon = false;
+            showStats = false;
+            level = 1;
+            score = 0;
+            health = 3;
+            shotsFired = 0;
+            asteroidsDestroyed = 0;
+            enemiesDefeated = 0;
+            healthCollected = 0;
+            landingStartTime = 0;
+            mothershipStartTime = 0;
+            joystickTouchId = null;
+            shootButtonTouchId = null;
+            statsAnimationStart = 0;
+            displayedScore = 0;
+            displayedEnemies = 0;
+            displayedHealth = 0;
+            endingPhase = 'animation';
+            endingStartTime = 0;
+            weaponUpgradeLevel = 0;
+            shieldActive = false; // Shield is now OFF at start/reset
+            shieldCooldown = 0;
+            if (typeof weaponUpgrades === 'undefined') weaponUpgrades = [];
+            if (typeof shieldPickups === 'undefined') shieldPickups = [];
+            weaponUpgrades.length = 0;
+            shieldPickups.length = 0;
+        }
+
+        function windowResized() {
+            updateCanvasSize();
+            resizeCanvas(canvasWidth, canvasHeight);
+            skyGradient = drawingContext.createLinearGradient(0, 0, 0, canvasHeight);
+            skyGradient.addColorStop(0, '#0a0a1e');
+            skyGradient.addColorStop(1, '#2a0036');
+            initializeGame();
+        }
+
+        class Asteroid {
+            constructor() {
+                this.x = random(canvasWidth);
+                this.y = 0;
+                this.radius = 10 * scaleFactor;
+                this.vy = random(4, 6) * scaleFactor;
+                this.vertices = [];
+                for (let angle = 0; angle < TWO_PI; angle += 0.2) {
+                    let r = this.radius * (1 + noise(angle * 2) * 0.4);
+                    this.vertices.push({ x: cos(angle) * r, y: sin(angle) * r });
+                }
+            }
+            update() {
+                this.y += this.vy;
+            }
+            draw(scale) {
+                push();
+                translate(this.x, this.y);
+                fill(120, 120, 120);
+                stroke(0);
+                strokeWeight(2 * scaleFactor);
+                beginShape();
+                for (let v of this.vertices) {
+                    vertex(v.x * scale, v.y * scale);
+                }
+                endShape(CLOSE);
+                fill(100, 100, 100);
+                ellipse(-5 * scale * scaleFactor, -3 * scale * scaleFactor, 4 * scaleFactor, 4 * scaleFactor);
+                ellipse(3 * scale * scaleFactor, 2 * scale * scaleFactor, 3 * scaleFactor, 3 * scaleFactor);
+                stroke(80, 80, 80);
+                strokeWeight(1 * scaleFactor);
+                line(-4 * scale * scaleFactor, -4 * scale * scaleFactor, 4 * scale * scaleFactor, 4 * scaleFactor);
+                line(2 * scale * scaleFactor, -5 * scale * scaleFactor, -2 * scale * scaleFactor, 5 * scaleFactor);
+                noStroke();
+                pop();
+            }
+        }
+
+        class Boss {
+            constructor(health, moveSpeed, fireInterval) {
+                this.x = canvasWidth / 2;
+                this.y = 50 * scaleFactor;
+                this.width = 50 * scaleFactor;
+                this.height = 30 * scaleFactor;
+                this.initialHealth = health;
+                this.health = health;
+                this.speed = moveSpeed * scaleFactor;
+                this.direction = 1;
+                this.fireInterval = fireInterval;
+                this.lastShot = millis();
+                this.lasers = [];
+            }
+            update() {
+                this.x += this.speed * this.direction;
+                if (this.x < this.width / 2 || this.x > canvasWidth - this.width / 2) {
+                    this.direction *= -1;
+                }
+                if (millis() - this.lastShot > this.fireInterval && this.lasers.length < maxLasers) {
+                    this.lasers.push({
+                        x: this.x,
+                        y: this.y + this.height / 2,
+                        vy: 5 * scaleFactor
+                    });
+                    this.lastShot = millis();
+                }
+                for (let i = this.lasers.length - 1; i >= 0; i--) {
+                    let l = this.lasers[i];
+                    l.y += l.vy;
+                    if (l.y > canvasHeight) {
+                        this.lasers.splice(i, 1);
+                    }
+                }
+            }
+            draw() {
+                push();
+                translate(this.x, this.y);
+                fill(200, 0, 200);
+                stroke(0);
+                strokeWeight(2 * scaleFactor);
+                ellipse(0, 0, this.width, this.height);
+                fill(255, 255, 255);
+                ellipse(0, -5 * scaleFactor, 15 * scaleFactor, 15 * scaleFactor);
+                noStroke();
+                fill(255, 0, 0, 150);
+                ellipse(0, 0, 20 * scaleFactor * sin(animationFrame * 0.2), 20 * scaleFactor * sin(animationFrame * 0.2));
+                pop();
+                for (let l of this.lasers) {
+                    fill(255, 50, 50);
+                    noStroke();
+                    rect(l.x - 2 * scaleFactor, l.y - 10 * scaleFactor, 4 * scaleFactor, 20 * scaleFactor);
+                }
+                let healthRatio = this.health / this.initialHealth;
+                let barWidth = this.width;
+                let barHeight = 5 * scaleFactor;
+                let barX = this.x - barWidth / 2;
+                let barY = this.y - this.height / 2 - 10 * scaleFactor;
+                fill(255, 0, 0);
+                rect(barX, barY, barWidth * healthRatio, barHeight);
+                stroke(0);
+                strokeWeight(1 * scaleFactor);
+                noFill();
+                rect(barX, barY, barWidth, barHeight);
+                noStroke();
+            }
+        }
+
+        class Firework {
+            constructor() {
+                this.x = random(canvasWidth);
+                this.y = random(canvasHeight);
+                this.size = random(10, 25) * scaleFactor;
+                this.color = [random(150, 255), random(150, 255), random(150, 255)];
+                this.lifespan = 60;
+            }
+            update() {
+                this.lifespan--;
+            }
+            draw() {
+                push();
+                translate(this.x, this.y);
+                fill(this.color[0], this.color[1], this.color[2], map(this.lifespan, 0, 60, 0, 255));
+                noStroke();
+                beginShape();
+                for (let a = 0; a < TWO_PI; a += PI / 8) {
+                    let r1 = this.size;
+                    let r2 = this.size * 0.5;
+                    vertex(cos(a) * r1, sin(a) * r1);
+                    vertex(cos(a + PI / 16) * r2, sin(a + PI / 16) * r2);
+                }
+                endShape(CLOSE);
+                pop();
+            }
+            done() {
+                return this.lifespan <= 0;
+            }
+        }
+
+        class HealthPickup {
+            constructor() {
+                this.x = random(canvasWidth);
+                this.y = 0;
+                this.radius = 8 * scaleFactor;
+                this.vy = 3 * scaleFactor;
+            }
+            update() {
+                this.y += this.vy;
+            }
+            draw() {
+                fill(0, 255, 0, 200);
+                stroke(255, 255, 255, 150);
+                strokeWeight(1 * scaleFactor);
+                ellipse(this.x, this.y, this.radius * 2);
+                noStroke();
+                fill(255, 255, 255, 100);
+                ellipse(this.x, this.y, this.radius * 1.5 * sin(animationFrame * 0.2));
+            }
+        }
+
+        class WeaponUpgrade {
+            constructor() {
+                this.x = random(canvasWidth);
+                this.y = 0;
+                this.radius = 10 * scaleFactor;
+                this.vy = 3 * scaleFactor;
+            }
+            update() {
+                this.y += this.vy;
+            }
+            draw() {
+                fill(255, 215, 0, 220);
+                stroke(255, 255, 255, 180);
+                strokeWeight(2 * scaleFactor);
+                ellipse(this.x, this.y, this.radius * 2);
+                noStroke();
+                fill(255, 255, 255, 120);
+                ellipse(this.x, this.y, this.radius * 1.2 * sin(animationFrame * 0.2));
+                textSize(14 * scaleFactor);
+                fill(0);
+                textAlign(CENTER, CENTER);
+                text('W', this.x, this.y);
+            }
+        }
+
+        class ShieldPickup {
+            constructor() {
+                this.x = random(canvasWidth);
+                this.y = 0;
+                this.radius = 12 * scaleFactor;
+                this.vy = 3 * scaleFactor;
+            }
+            update() {
+                this.y += this.vy;
+            }
+            draw() {
+                fill(0, 200, 255, 200);
+                stroke(255, 255, 255, 180);
+                strokeWeight(2 * scaleFactor);
+                ellipse(this.x, this.y, this.radius * 2);
+                noStroke();
+                fill(255, 255, 255, 120);
+                ellipse(this.x, this.y, this.radius * 1.2 * sin(animationFrame * 0.2));
+                textSize(14 * scaleFactor);
+                fill(0);
+                textAlign(CENTER, CENTER);
+                text('S', this.x, this.y);
+            }
+        }
+
+        class VictoryParticle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = random(-5, 5) * scaleFactor;
+                this.vy = random(-5, 5) * scaleFactor;
+                this.size = random(5, 10) * scaleFactor;
+                this.color = [random(150, 255), random(150, 255), random(150, 255)];
+                this.lifespan = 30;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.lifespan--;
+            }
+            draw() {
+                fill(this.color[0], this.color[1], this.color[2], map(this.lifespan, 0, 30, 0, 255));
+                noStroke();
+                ellipse(this.x, this.y, this.size);
+            }
+            done() {
+                return this.lifespan <= 0;
+            }
+        }
+
+        let shieldActive = true;
+        let shieldCooldown = 0;
+        let weaponUpgradeLevel = 0; // 0 = normal, 1-3 = upgrades
+        const maxWeaponUpgrade = 3;
+
+        function drawStarship(x, y, scale) {
+            push();
+            translate(x, y);
+            let sway = sin(animationFrame * 0.2) * 2 * scaleFactor;
+            stroke(0);
+            strokeWeight(3 * scaleFactor * scale);
+            fill(100, 150, 255);
+            beginShape();
+            vertex(0, -20 * scaleFactor * scale + sway);
+            vertex(15 * scaleFactor * scale, 10 * scaleFactor * scale);
+            vertex(0, 20 * scaleFactor * scale);
+            vertex(-15 * scaleFactor * scale, 10 * scaleFactor * scale);
+            endShape(CLOSE);
+            fill(200, 200, 255);
+            ellipse(0, 0, 15 * scaleFactor * scale, 15 * scaleFactor * scale);
+            fill(255, 100, 100);
+            ellipse(-10 * scaleFactor * scale, 15 * scaleFactor * scale, 8 * scaleFactor * scale, 12 * scaleFactor * scale);
+            ellipse(10 * scaleFactor * scale, 15 * scaleFactor * scale, 8 * scaleFactor * scale, 12 * scaleFactor * scale);
+            noStroke();
+            fill(255, 255, 255, 150);
+            let pulseY = 20 * scaleFactor * scale + 10 * scaleFactor * scale;
+            ellipse(-10 * scaleFactor * scale, pulseY, 6 * scaleFactor * scale * (sin(animationFrame * 0.3) + 1.5), 6 * scaleFactor * scale);
+            ellipse(10 * scaleFactor * scale, pulseY, 6 * scaleFactor * scale * (sin(animationFrame * 0.3) + 1.5), 6 * scaleFactor * scale);
+            // Draw shield if active
+            if (shieldActive && shieldCooldown <= 0) {
+                // Enhanced forcefield effect
+                for (let i = 0; i < 3; i++) {
+                    let alpha = 80 - i * 25;
+                    let radiusX = 40 * scaleFactor * scale + i * 6 * scaleFactor * scale + sin(animationFrame * 0.2 + i) * 2 * scaleFactor * scale;
+                    let radiusY = 50 * scaleFactor * scale + i * 8 * scaleFactor * scale + cos(animationFrame * 0.2 + i) * 2 * scaleFactor * scale;
+                    noFill();
+                    stroke(0, 200, 255, alpha);
+                    strokeWeight((6 - i * 2) * scaleFactor * scale);
+                    ellipse(0, 0, radiusX, radiusY);
+                }
+            }
+            pop();
+        }
+
+        // --- Enemy Class ---
+        class Enemy {
+            constructor(x, y, level) {
+                this.x = x;
+                this.y = y;
+                this.width = 30 * scaleFactor;
+                this.height = 20 * scaleFactor;
+                this.vy = random(3, 5) * scaleFactor;
+                this.baseVy = this.vy;
+                this.vx = (random(1, 2) + level * 0.5) * scaleFactor * (random() < 0.5 ? 1 : -1);
+                this.level = level;
+                this.shootCooldown = random(30, 80);
+                this.shootTimer = 0;
+                this.alive = true;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                // Bounce off screen edges
+                if (this.x < this.width / 2 || this.x > canvasWidth - this.width / 2) {
+                    this.vx *= -1;
+                }
+                this.shootTimer++;
+            }
+            draw() {
+                push();
+                translate(this.x, this.y);
+                fill(255, 80, 80);
+                stroke(0);
+                strokeWeight(2 * scaleFactor);
+                ellipse(0, 0, this.width, this.height);
+                fill(255, 255, 255, 180);
+                ellipse(0, -4 * scaleFactor, 10 * scaleFactor, 10 * scaleFactor);
+                pop();
+            }
+            canShoot() {
+                return this.shootTimer > this.shootCooldown;
+            }
+            resetShoot() {
+                this.shootTimer = 0;
+                this.shootCooldown = random(30, 80) - this.level * 5;
+            }
+        }
+
+        // --- Desktop Keyboard Controls ---
+        // Allow WASD/arrow keys for movement and Space/Enter for shooting
+        let keyState = {};
+        let audioStarted = false; // Track if audio has been started
+        const RESET_KEY = 'r'; // Use 'R' key for reset on desktop
+
+        function keyPressed() {
+            keyState[key] = true;
+            keyState[keyCode] = true;
+            // Space or Enter triggers shooting
+            if ((key === ' ' || keyCode === 32 || keyCode === 13) && !shootButton.active) {
+                shootButton.active = true;
+            }
+            // Start audio on first key press (desktop)
+            if (!audioStarted) {
+                initAudio();
+                audioStarted = true;
+            }
+            // 'R' key triggers restart or play again in ANY state
+            if (key === RESET_KEY || key === 'R' || keyCode === 82) {
+                if (document.getElementById('endScene')) document.getElementById('endScene').style.display = 'none';
+                if (document.getElementById('statsScene')) document.getElementById('statsScene').style.display = 'none';
+                resetGame();
+                return false;
+            }
+        }
+
+        function keyReleased() {
+            keyState[key] = false;
+            keyState[keyCode] = false;
+            // Stop shooting when Space/Enter released
+            if (key === ' ' || keyCode === 32 || keyCode === 13) {
+                shootButton.active = false;
+            }
+        }
+
+        // Start audio on first mouse click (desktop)
+        document.addEventListener('mousedown', function startAudioOnce() {
+            if (!audioStarted) {
+                initAudio();
+                audioStarted = true;
+            }
+            document.removeEventListener('mousedown', startAudioOnce);
+        });
+
+        // --- Mouse Click Handler for Desktop Buttons ---
+        function mousePressed() {
+            // Only handle if game over or game won and not transitioning
+            if ((gameOver && millis() - gameOverDelay > 300) || (gameWon && endingPhase === 'finalScreen')) {
+                // Hide overlays if visible
+                if (document.getElementById('endScene')) document.getElementById('endScene').style.display = 'none';
+                if (document.getElementById('statsScene')) document.getElementById('statsScene').style.display = 'none';
+                // Restart button (Game Over)
+                if (
+                    mouseX > restartButton.x - restartButton.width / 2 &&
+                    mouseX < restartButton.x + restartButton.width / 2 &&
+                    mouseY > restartButton.y - restartButton.height / 2 &&
+                    mouseY < restartButton.y + restartButton.height / 2 &&
+                    (gameOver && millis() - gameOverDelay > 300)
+                ) {
+                    resetGame();
+                    return false;
+                }
+                // Play Again button (Victory)
+                if (
+                    mouseX > playAgainButton.x - playAgainButton.width / 2 &&
+                    mouseX < playAgainButton.x + playAgainButton.width / 2 &&
+                    mouseY > playAgainButton.y - playAgainButton.height / 2 &&
+                    mouseY < playAgainButton.y + playAgainButton.height / 2 &&
+                    (gameWon && endingPhase === 'finalScreen')
+                ) {
+                    resetGame();
+                    return false;
+                }
+                // If overlays are up but user clicks anywhere, also reset
+                if (gameOver || gameWon) {
+                    resetGame();
+                    return false;
+                }
+            }
+            return true;
+        }
+        window.mousePressed = mousePressed;
+
+        function draw() {
+            try {
+                let currentTime = millis();
+                if (currentTime - lastFrameTime < frameInterval) return;
+                lastFrameTime = currentTime;
+                clear();
+                background(10, 10, 30);
+                animationFrame++;
+
+                // --- Desktop Keyboard Movement Controls ---
+                // Only if not game over, not transitioning, not won
+                if (!gameOver && !isTransitioning && !gameWon) {
+                    // Use higher speed for desktop
+                    let moveSpeed = isMobile ? 7 * scaleFactor : 18 * scaleFactor;
+                    if (keyState['w'] || keyState['W'] || keyState[87] || keyState[38]) { // W or Up Arrow
+                        starship.y -= moveSpeed;
+                    }
+                    if (keyState['s'] || keyState['S'] || keyState[83] || keyState[40]) { // S or Down Arrow
+                        starship.y += moveSpeed;
+                    }
+                    if (keyState['a'] || keyState['A'] || keyState[65] || keyState[37]) { // A or Left Arrow
+                        starship.x -= moveSpeed;
+                    }
+                    if (keyState['d'] || keyState['D'] || keyState[68] || keyState[39]) { // D or Right Arrow
+                        starship.x += moveSpeed;
+                    }
+                }
+
+                // Overlay: show music loading spinner/message if needed
+                if (musicLoading) {
+                    fill(0, 0, 0, 180);
+                    rect(0, 0, canvasWidth, canvasHeight);
+                    fill(255);
+                    textAlign(CENTER, CENTER);
+                    textSize(28 * scaleFactor);
+                    text('Loading music...', canvasWidth / 2, canvasHeight / 2);
+                } else if (musicLoadFailed) {
+                    fill(0, 0, 0, 180);
+                    rect(0, 0, canvasWidth, canvasHeight);
+                    fill(255, 100, 100);
+                    textAlign(CENTER, CENTER);
+                    textSize(24 * scaleFactor);
+                    text('Music failed to load.\nGame will continue without music.', canvasWidth / 2, canvasHeight / 2);
+                }
+
+                if (gameWon) {
+                    if (endingStartTime === 0) endingStartTime = millis();
+                    let endingTime = millis() - endingStartTime;
+
+                    if (endingTime < animationDuration) {
+                        drawingContext.fillStyle = skyGradient;
+                        rect(0, 0, canvasWidth, canvasHeight);
+                        fill(255, 255, 200);
+                        noStroke();
+                        for (let s of stars) {
+                            s.y += s.vy;
+                            if (s.y > canvasHeight) s.y -= canvasHeight;
+                            let scale = map(s.y, 0, canvasHeight, 0.5, 1.5);
+                            let twinkle = sin(animationFrame * 0.1 + s.x) * 0.5;
+                            beginShape();
+                            for (let a = 0; a < TWO_PI; a += PI / 2) {
+                                vertex(s.x + cos(a) * (s.baseSize + twinkle) * scale * scaleFactor, s.y + sin(a) * (s.baseSize + twinkle) * scale * scaleFactor);
+                                vertex(s.x + cos(a + PI / 4) * (s.baseSize * 0.5 + twinkle) * scale * scaleFactor, s.y + sin(a + PI / 4) * (s.baseSize * 0.5 + twinkle) * scale * scaleFactor);
+                            }
+                            endShape(CLOSE);
+                        }
+
+                        if (mothershipStartTime === 0) mothershipStartTime = millis();
+                        let mt = min((millis() - mothershipStartTime) / mothershipDuration, 1);
+                        let mothershipStartY = -120 * scaleFactor;
+                        let mothershipEndY = canvasHeight / 2;
+                        let mothershipY = lerp(mothershipStartY, mothershipEndY, mt);
+                        push();
+                        translate(canvasWidth / 2, mothershipY);
+                        let glowSize = 100 * scaleFactor * (1 + 0.2 * sin(animationFrame * 0.1));
+                        fill(0, 255, 255, 50);
+                        noStroke();
+                        ellipse(0, 0, glowSize);
+                        pop();
+                        drawStarship(canvasWidth / 2, mothershipY, 3);
+
+                        if (landingStartTime === 0) landingStartTime = millis();
+                        let t = min((millis() - landingStartTime) / landingDuration, 1);
+                        let x, y;
+                        if (t < 0.7) {
+                            let radius = 50 * scaleFactor;
+                            let angle = (millis() - landingStartTime) * 0.002;
+                            x = canvasWidth / 2 + cos(angle) * radius;
+                            y = mothershipY + sin(angle) * radius;
+                        } else {
+                            let landT = (t - 0.7) / 0.3;
+                            x = lerp(canvasWidth / 2 + 50 * scaleFactor, canvasWidth / 2, landT);
+                            y = lerp(mothershipY, mothershipY, landT);
+                            if (t >= 1 && victoryParticles.length === 0) {
+                                for (let i = 0; i < 10; i++) {
+                                    victoryParticles.push(new VictoryParticle(x, y));
+                                }
+                                playExplosionSound();
+                            }
+                        }
+                        drawStarship(x, y, 1);
+
+                        for (let i = victoryParticles.length - 1; i >= 0; i--) {
+                            victoryParticles[i].update();
+                            victoryParticles[i].draw();
+                            if (victoryParticles[i].done()) victoryParticles.splice(i, 1);
+                        }
+
+                        if (random() < 0.05 && fireworks.length < maxFireworks) {
+                            fireworks.push(new Firework());
+                            playExplosionSound();
+                        }
+                        for (let i = fireworks.length - 1; i >= 0; i--) {
+                            fireworks[i].update();
+                            fireworks[i].draw();
+                            if (fireworks[i].done()) fireworks.splice(i, 1);
+                        }
+
+                        document.getElementById('endScene').style.display = 'none';
+                        document.getElementById('statsScene').style.display = 'none';
+                    } else if (endingTime < animationDuration + fadeDuration) {
+                        endingPhase = 'fade';
+                        let fadeT = (endingTime - animationDuration) / fadeDuration;
+                        fill(10, 10, 30, 255 * fadeT);
+                        rect(0, 0, canvasWidth, canvasHeight);
+                        document.getElementById('endScene').style.display = 'none';
+                        document.getElementById('statsScene').style.display = 'none';
+                    } else {
+                        endingPhase = 'finalScreen';
+                        fill(10, 10, 30);
+                        rect(0, 0, canvasWidth, canvasHeight);
+                        fill(255);
+                        stroke(0);
+                        strokeWeight(3 * scaleFactor);
+                        textSize(48 * scaleFactor);
+                        textAlign(CENTER, TOP);
+                        textFont('Comic Neue');
+                        text('Mission Complete!', canvasWidth / 2, 50 * scaleFactor);
+
+                        if (statsAnimationStart === 0) statsAnimationStart = millis();
+                        let animT = min((millis() - statsAnimationStart) / 2000, 1);
+                        displayedScore = floor(lerp(0, score, animT));
+                        displayedEnemies = floor(lerp(0, enemiesDefeated, animT));
+                        displayedHealth = floor(lerp(0, healthCollected, animT));
+
+                        textSize(24 * scaleFactor);
+                        textAlign(CENTER, TOP);
+                        let statsY = 150 * scaleFactor;
+                        text(`Final Score: ${displayedScore}`, canvasWidth / 2, statsY);
+                        text(`Enemies Defeated: ${displayedEnemies}`, canvasWidth / 2, statsY + 40 * scaleFactor);
+                        text(`Health Collected: ${displayedHealth}`, canvasWidth / 2, statsY + 80 * scaleFactor);
+
+                        textSize(20 * scaleFactor);
+                        text('Achievements Unlocked:', canvasWidth / 2, statsY + 120 * scaleFactor);
+                        let achY = statsY + 160 * scaleFactor;
+                        let achievements = [
+                            { id: 'ace-pilot', text: 'Ace Pilot: Defeat 10 enemies in under 30 seconds' },
+                            { id: 'sharp-shooter', text: 'Sharp Shooter: Destroy 5 asteroids without missing' },
+                            { id: 'high-score', text: 'High Score: Reach 200 points' }
+                        ];
+                        achievements.forEach(ach => {
+                            if (document.getElementById(ach.id).classList.contains('unlocked')) {
+                                text(ach.text, canvasWidth / 2, achY);
+                                achY += 30 * scaleFactor;
+                            }
+                        });
+
+                        playAgainButton.y = achY + 50 * scaleFactor;
+                        fill(0, 255, 0);
+                        rect(playAgainButton.x - playAgainButton.width / 2, playAgainButton.y - playAgainButton.height / 2, playAgainButton.width, playAgainButton.height, 10 * scaleFactor);
+                        fill(0);
+                        textSize(20 * scaleFactor);
+                        textAlign(CENTER, CENTER);
+                        if (!isMobile) {
+                            text('Play Again (R)', playAgainButton.x, playAgainButton.y);
+                        } else {
+                            text('Play Again', playAgainButton.x, playAgainButton.y);
+                        }
+                        noStroke();
+
+                        document.getElementById('endScene').style.display = 'none';
+                        document.getElementById('statsScene').style.display = 'none';
+                    }
+                    return;
+                }
+
+                if (!gameOver && !isTransitioning) {
+                    drawingContext.fillStyle = skyGradient;
+                    rect(0, 0, canvasWidth, canvasHeight);
+                    fill(255, 255, 200);
+                    noStroke();
+                    for (let s of stars) {
+                        s.y += s.vy;
+                        if (s.y > canvasHeight) s.y -= canvasHeight;
+                        let scale = map(s.y, 0, canvasHeight, 0.5, 1.5);
+                        let twinkle = sin(animationFrame * 0.1 + s.x) * 0.5;
+                        beginShape();
+                        for (let a = 0; a < TWO_PI; a += PI / 2) {
+                            vertex(s.x + cos(a) * (s.baseSize + twinkle) * scale * scaleFactor, s.y + sin(a) * (s.baseSize + twinkle) * scale * scaleFactor);
+                            vertex(s.x + cos(a + PI / 4) * (s.baseSize * 0.5 + twinkle) * scale * scaleFactor, s.y + sin(a + PI / 4) * (s.baseSize * 0.5 + twinkle) * scale * scaleFactor);
+                        }
+                        endShape(CLOSE);
+                    }
+
+                    if (joystick.active) {
+                        let dx = joystick.startX - joystick.x;
+                        let dy = joystick.startY - joystick.y;
+                        let dist = sqrt(dx * dx + dy * dy);
+                        let maxDist = 40 * uiScaleFactor;
+                        if (dist > 1 * scaleFactor) {
+                            let angle = atan2(-dy, -dx);
+                            let speed = starship.speed * 3.0 * min(dist / maxDist, 1);
+                            starship.x -= cos(angle) * speed;
+                            starship.y -= sin(angle) * speed;
+                        }
+                    }
+                    starship.x = constrain(starship.x, 0, canvasWidth - starship.width);
+                    starship.y = constrain(starship.y, 0, canvasHeight - 100 * scaleFactor);
+
+                    // Decrement shield cooldown if > 0
+                    if (shieldCooldown > 0) shieldCooldown--;
+
+                    // --- Player Shooting Logic ---
+                    // Handles firing lasers based on weapon upgrade level
+                    if (shootButton.active && millis() - lastShootTime > shootInterval) {
+                        if (playerLasers) {
+                            let baseX = starship.x + starship.width / 2;
+                            let baseY = starship.y;
+                            let spread = 12 * scaleFactor;
+                            switch (weaponUpgradeLevel) {
+                                case 0:
+                                    playerLasers.push({ x: baseX, y: baseY });
+                                    break;
+                                case 1:
+                                    playerLasers.push({ x: baseX - spread, y: baseY });
+                                    playerLasers.push({ x: baseX + spread, y: baseY });
+                                    break;
+                                case 2:
+                                    playerLasers.push({ x: baseX - spread, y: baseY });
+                                    playerLasers.push({ x: baseX, y: baseY });
+                                    playerLasers.push({ x: baseX + spread, y: baseY });
+                                    break;
+                                default:
+                                    // Level 3 and above: four lasers
+                                    playerLasers.push({ x: baseX - spread * 1.5, y: baseY });
+                                    playerLasers.push({ x: baseX - spread * 0.5, y: baseY });
+                                    playerLasers.push({ x: baseX + spread * 0.5, y: baseY });
+                                    playerLasers.push({ x: baseX + spread * 1.5, y: baseY });
+                                    break;
+                            }
+                            shotsFired++;
+                            lastShootTime = millis();
+                            playShootSound();
+                        }
+                    }
+
+                    // Draw the player starship (with shield visual if active)
+                    drawStarship(starship.x + starship.width / 2, starship.y + starship.height / 2, 1);
+
+                    if (!bossActive && frameCount % 20 === 0 && random() < 0.6 && asteroids.length < maxAsteroids) {
+                        asteroids.push(new Asteroid());
+                    }
+
+                    // --- Enemy Ships ---
+                    if (!bossActive && frameCount % 40 === 0 && random() < 0.7 && enemies.length < maxEnemies) {
+                        enemies.push({
+                            x: random(canvasWidth),
+                            y: 0,
+                            width: 30 * scaleFactor,
+                            height: 20 * scaleFactor,
+                            vy: random(3, 5) * scaleFactor,
+                            vx: random([-1, 1]) * random(1, 2) * scaleFactor, // Add side-to-side movement
+                            moveTimer: 0,
+                            moveDir: random([-1, 1]),
+                            shootTimer: 0
+                        });
+                    }
+
+                    // --- Enemy Update/Draw/Logic ---
+                    for (let i = enemies.length - 1; i >= 0; i--) {
+                        let e = enemies[i];
+                        // Side-to-side movement, speed increases with level
+                        e.moveTimer++;
+                        if (e.moveTimer > 20) {
+                            e.moveDir = random([-1, 1]);
+                            e.moveTimer = 0;
+                        }
+                        e.x += e.moveDir * (2 + level) * scaleFactor;
+                        e.x = constrain(e.x, e.width / 2, canvasWidth - e.width / 2);
+                        e.y += e.vy;
+                        // Draw enemy ship
+                        push();
+                        translate(e.x, e.y);
+                        fill(255, 80, 80);
+                        stroke(0);
+                        strokeWeight(2 * scaleFactor);
+                        ellipse(0, 0, e.width, e.height);
+                        fill(255, 255, 255, 180);
+                        ellipse(0, -4 * scaleFactor, 10 * scaleFactor, 10 * scaleFactor);
+                        pop();
+                        // Enemy shooting
+                        e.shootTimer++;
+                        if (e.shootTimer > 40 + random(-10, 10) && random() < 0.2 + 0.1 * level) {
+                            enemyLasers.push({ x: e.x, y: e.y + e.height / 2, vy: 6 * scaleFactor + level });
+                            e.shootTimer = 0;
+                        }
+                        // Collision with player
+                        if (dist(e.x, e.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < e.width / 2 + starship.width / 2) {
+                            if (shieldActive && shieldCooldown <= 0) {
+                                shieldActive = false;
+                                shieldCooldown = 60;
+                            } else {
+                                health--;
+                                weaponUpgradeLevel = 0;
+                            }
+                            enemies.splice(i, 1);
+                            playExplosionSound();
+                            if (health <= 0) {
+                                isTransitioning = true;
+                                gameOverDelay = millis();
+                            }
+                            continue;
+                        }
+                        // Hit by player laser
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let l = playerLasers[j];
+                            if (dist(l.x, l.y, e.x, e.y) < e.width / 2 + 5) {
+                                for (let k = 0; k < 2; k++) {
+                                    particles.push({
+                                        x: e.x,
+                                        y: e.y,
+                                        vx: random(-2, 2) * scaleFactor,
+                                        vy: random(-2, 2) * scaleFactor,
+                                        life: 6,
+                                        color: [random(255, 255), random(100, 255), random(180, 255)]
+                                    });
+                                }
+                                enemies.splice(i, 1);
+                                playerLasers.splice(j, 1);
+                                enemiesDefeated++;
+                                score += 10;
+                                playExplosionSound();
+                                checkAchievements();
+                                break;
+                            }
+                        }
+                        // Remove if off screen
+                        if (e.y > canvasHeight + e.height) {
+                            enemies.splice(i, 1);
+                        }
+                    }
+
+                    if (!bossActive && frameCount % 120 === 0 && random() < 0.2 && healthPickups.length < maxHealthPickups) {
+                        healthPickups.push(new HealthPickup());
+                    }
+
+                    // --- Weapon Upgrade Pickups ---
+                    if (!bossActive && frameCount % 100 === 0 && random() < 0.3) {
+                        if (weaponUpgrades.length < 3) weaponUpgrades.push(new WeaponUpgrade());
+                    }
+                    // --- Shield Pickups ---
+                    if (!bossActive && frameCount % 200 === 0 && random() < 0.18) {
+                        if (shieldPickups.length < 2) shieldPickups.push(new ShieldPickup());
+                    }
+
+                    if (!bossActive) {
+                        if (score >= 100 && level === 1) {
+                            boss = new Boss(20, 2, 1000);
+                            bossActive = true;
+                            asteroids = [];
+                            enemies = [];
+                            enemyLasers = [];
+                            healthPickups = [];
+                        } else if (score >= 500 && level === 2) {
+                            boss = new Boss(50, 3, 750);
+                            bossActive = true;
+                            asteroids = [];
+                            enemies = [];
+                            enemyLasers = [];
+                            healthPickups = [];
+                        } else if (score >= 1000 && level === 3) {
+                            boss = new Boss(100, 4, 500);
+                            bossActive = true;
+                            asteroids = [];
+                            enemies = [];
+                            enemyLasers = [];
+                            healthPickups = [];
+                        }
+                    }
+
+                    for (let i = asteroids.length - 1; i >= 0; i--) {
+                        let a = asteroids[i];
+                        a.update();
+                        let scale = map(a.y, 0, canvasHeight, 0.5, 1.5);
+                        a.draw(scale);
+                        if (dist(a.x, a.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < a.radius * scale + starship.width / 2) {
+                            if (shieldActive && shieldCooldown <= 0) {
+                                shieldActive = false;
+                                shieldCooldown = 60; // 60 frames of invuln
+                            } else {
+                                health--;
+                                weaponUpgradeLevel = 0;
+                            }
+                            asteroids.splice(i, 1);
+                            playExplosionSound();
+                            if (health <= 0) {
+                                isTransitioning = true;
+                                gameOverDelay = millis();
+                            }
+                            continue;
+                        }
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let l = playerLasers[j];
+                            let hitDist = dist(l.x, l.y, a.x, a.y);
+                            if (hitDist < a.radius * scale + 5 && particles.length < maxParticles) {
+                                for (let k = 0; k < 2; k++) {
+                                    particles.push({
+                                        x: a.x,
+                                        y: a.y,
+                                        vx: random(-2, 2) * scaleFactor,
+                                        vy: random(-2, 2) * scaleFactor,
+                                        life: 6,
+                                        color: [random(255, 255), random(100, 255), random(180, 255)]
+                                    });
+                                }
+                                asteroids.splice(i, 1);
+                                playerLasers.splice(j, 1);
+                                asteroidsDestroyed++;
+                                score += 1;
+                                playExplosionSound();
+                                checkAchievements();
+                            }
+                        }
+                        if (a.y > canvasHeight + a.radius * scale) {
+                            asteroids.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = healthPickups.length - 1; i >= 0; i--) {
+                        let h = healthPickups[i];
+                        h.update();
+                        h.draw();
+                        if (dist(h.x, h.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < h.radius + starship.width / 2) {
+                            if (health < maxHealth) {
+                                health++;
+                                healthCollected++;
+                                playPowerupSound();
+                            } else {
+                                score += 5;
+                            }
+                            healthPickups.splice(i, 1);
+                            continue;
+                        }
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let l = playerLasers[j];
+                            if (dist(l.x, l.y, h.x, h.y) < h.radius + 5) {
+                                score = max(0, score - 20);
+                                healthPickups.splice(i, 1);
+                                playerLasers.splice(j, 1);
+                                playExplosionSound();
+                                break;
+                            }
+                        }
+                        if (h.y > canvasHeight + h.radius) {
+                            healthPickups.splice(i, 1);
+                        }
+                    }
+
+                    // --- Weapon Upgrade Pickups ---
+                    for (let i = weaponUpgrades.length - 1; i >= 0; i--) {
+                        let w = weaponUpgrades[i];
+                        w.update();
+                        w.draw();
+                        if (dist(w.x, w.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < w.radius + starship.width / 2) {
+                            if (weaponUpgradeLevel < maxWeaponUpgrade) {
+                                weaponUpgradeLevel++;
+                            }
+                            weaponUpgrades.splice(i, 1);
+                            playPowerupSound();
+                            continue;
+                        }
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let l = playerLasers[j];
+                            if (dist(l.x, l.y, w.x, w.y) < w.radius + 5) {
+                                score = Math.max(0, score - 20);
+                                weaponUpgrades.splice(i, 1);
+                                playerLasers.splice(j, 1);
+                                playExplosionSound();
+                                break;
+                            }
+                        }
+                        if (w.y > canvasHeight + w.radius) {
+                            weaponUpgrades.splice(i, 1);
+                        }
+                    }
+
+                    // --- Shield Pickups ---
+                    for (let i = shieldPickups.length - 1; i >= 0; i--) {
+                        let s = shieldPickups[i];
+                        s.update();
+                        s.draw();
+                        if (dist(s.x, s.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < s.radius + starship.width / 2) {
+                            if (!shieldActive) {
+                                shieldActive = true;
+                                shieldCooldown = 0;
+                                shieldPickups.splice(i, 1);
+                                playPowerupSound();
+                                continue;
+                            }
+                        }
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let l = playerLasers[j];
+                            if (dist(l.x, l.y, s.x, s.y) < s.radius + 5) {
+                                score = Math.max(0, score - 20);
+                                shieldPickups.splice(i, 1);
+                                playerLasers.splice(j, 1);
+                                playExplosionSound();
+                                break;
+                            }
+                        }
+                        if (s.y > canvasHeight + s.radius) {
+                            shieldPickups.splice(i, 1);
+                        }
+                    }
+
+                    if (bossActive && boss) {
+                        boss.update();
+                        boss.draw();
+                        if (dist(boss.x, boss.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < boss.width / 2 + starship.width / 2) {
+                            if (shieldActive && shieldCooldown <= 0) {
+                                shieldActive = false;
+                                shieldCooldown = 60; // 60 frames of invuln
+                            } else {
+                                health--;
+                                weaponUpgradeLevel = 0;
+                                playExplosionSound();
+                                if (health <= 0) {
+                                    isTransitioning = true;
+                                    gameOverDelay = millis();
+                                }
+                            }
+                        }
+                        for (let i = boss.lasers.length - 1; i >= 0; i--) {
+                            let l = boss.lasers[i];
+                            if (dist(l.x, l.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < 10 * scaleFactor + starship.width / 2) {
+                                health--;
+                                weaponUpgradeLevel = 0;
+                                boss.lasers.splice(i, 1);
+                                playExplosionSound();
+                                if (health <= 0) {
+                                    isTransitioning = true;
+                                    gameOverDelay = millis();
+                                }
+                            }
+                            for (let j = playerLasers.length - 1; j >= 0; j--) {
+                                let pl = playerLasers[j];
+                                if (dist(pl.x, pl.y, l.x, l.y) < 10 * scaleFactor + 5 && particles.length < maxParticles) {
+                                    for (let k = 0; k < 2; k++) {
+                                        particles.push({
+                                            x: l.x,
+                                            y: l.y,
+                                            vx: random(-2, 2) * scaleFactor,
+                                            vy: random(-2, 2) * scaleFactor,
+                                            life: 6,
+                                            color: [random(255, 255), random(100, 255), random(180, 255)]
+                                        });
+                                    }
+                                    boss.lasers.splice(i, 1);
+                                    playerLasers.splice(j, 1);
+                                    playExplosionSound();
+                                    break;
+                                }
+                            }
+                        }
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let l = playerLasers[j];
+                            if (dist(l.x, l.y, boss.x, boss.y) < boss.width / 2 + 5 && particles.length < maxParticles) {
+                                boss.health--;
+                                playerLasers.splice(j, 1);
+                                for (let k = 0; k < 2; k++) {
+                                    particles.push({
+                                        x: boss.x,
+                                        y: boss.y,
+                                        vx: random(-2, 2) * scaleFactor,
+                                        vy: random(-2, 2) * scaleFactor,
+                                        life: 6,
+                                        color: [random(255, 255), random(100, 255), random(180, 255)]
+                                    });
+                                }
+                                playExplosionSound();
+                                if (boss.health <= 0) {
+                                    score += 100 * level;
+                                    playBossVictorySound();
+                                    bossActive = false;
+                                    boss = null;
+                                    level++;
+                                    if (level > 3) {
+                                        gameWon = true;
+                                        endingStartTime = millis();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for (let i = enemyLasers.length - 1; i >= 0; i--) {
+                        let l = enemyLasers[i];
+                        l.y += l.vy;
+                        fill(255, 50, 50);
+                        noStroke();
+                        rect(l.x - 2 * scaleFactor, l.y - 10 * scaleFactor, 4 * scaleFactor, 20 * scaleFactor);
+                        if (dist(l.x, l.y, starship.x + starship.width / 2, starship.y + starship.height / 2) < 10 * scaleFactor + starship.width / 2) {
+                            if (shieldActive && shieldCooldown <= 0) {
+                                shieldActive = false;
+                                shieldCooldown = 60; // 60 frames of invuln
+                            } else {
+                                health--;
+                                weaponUpgradeLevel = 0;
+                                enemyLasers.splice(i, 1);
+                                playExplosionSound();
+                                if (health <= 0) {
+                                    isTransitioning = true;
+                                    gameOverDelay = millis();
+                                }
+                            }
+                            continue;
+                        }
+                        for (let j = playerLasers.length - 1; j >= 0; j--) {
+                            let pl = playerLasers[j];
+                            if (dist(pl.x, pl.y, l.x, l.y) < 10 * scaleFactor + 5 && particles.length < maxParticles) {
+                                for (let k = 0; k < 2; k++) {
+                                    particles.push({
+                                        x: l.x,
+                                        y: l.y,
+                                        vx: random(-2, 2) * scaleFactor,
+                                        vy: random(-2, 2) * scaleFactor,
+                                        life: 6,
+                                        color: [random(255, 255), random(100, 255), random(180, 255)]
+                                    });
+                                }
+                                enemyLasers.splice(i, 1);
+                                playerLasers.splice(j, 1);
+                                playExplosionSound();
+                            }
+                        }
+                        if (l.y > canvasHeight) {
+                            enemyLasers.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = playerLasers.length - 1; i >= 0; i--) {
+                        let l = playerLasers[i];
+                        l.y -= 7 * scaleFactor;
+                        fill(100, 200, 255);
+                        stroke(0);
+                        strokeWeight(2 * scaleFactor);
+                        beginShape();
+                        for (let a = 0; a < TWO_PI; a += PI / 3) {
+                            vertex(l.x + cos(a) * 9 * scaleFactor, l.y + sin(a) * 9 * scaleFactor);
+                            vertex(l.x + cos(a + PI / 6) * 4.5 * scaleFactor, l.y + sin(a + PI / 6) * 4.5 * scaleFactor);
+                        }
+                        endShape(CLOSE);
+                        noStroke();
+                        if (l.y < 0) {
+                            playerLasers.splice(i, 1);
+                        }
+                    }
+
+                    for (let i = particles.length - 1; i >= 0; i--) {
+                        let p = particles[i];
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.life--;
+                        fill(p.color[0], p.color[1], p.color[2], map(p.life, 0, 6, 0, 255));
+                        ellipse(p.x, p.y, 6 * scaleFactor);
+                        if (p.life <= 0 || particles.length > maxParticles) {
+                            particles.splice(i, 1);
+                        }
+                    }
+
+                    fill(255, 255, 255, 100);
+                    stroke(0);
+                    strokeWeight(2 * uiScaleFactor);
+                    ellipse(joystick.x, joystick.y, 60 * uiScaleFactor);
+                    fill(joystick.active ? [255, 255, 0] : [255, 255, 255, 200]);
+                    let stickX = constrain(joystick.startX, joystick.x - 30 * uiScaleFactor, joystick.x + 30 * uiScaleFactor);
+                    let stickY = constrain(joystick.startY, joystick.y - 30 * uiScaleFactor, joystick.y + 30 * uiScaleFactor);
+                    ellipse(stickX, stickY, 30 * uiScaleFactor);
+                    noStroke();
+
+                    fill(shootButton.active ? [255, 255, 0] : [255, 105, 180]);
+                    stroke(0);
+                    strokeWeight(2 * uiScaleFactor);
+                    ellipse(shootButton.x, shootButton.y, shootButton.radius * 2);
+                    fill(0);
+                    textAlign(CENTER, CENTER);
+                    textSize(10 * uiScaleFactor);
+                    text('Shoot', shootButton.x, shootButton.y);
+                    noStroke();
+
+                    fill(255);
+                    stroke(0);
+                    strokeWeight(2 * scaleFactor);
+                    textSize(20 * scaleFactor);
+                    textAlign(LEFT, TOP);
+                    textFont('Comic Neue');
+                    text(`Score: ${score} | Health: ${health} | Level: ${level}`, 10 * scaleFactor, 10 * scaleFactor);
+                    noStroke();
+                } else if (millis() - gameOverDelay > 300) {
+                    fill(255, 50, 50, 180);
+                    rect(0, 0, canvasWidth, canvasHeight);
+                    fill(255);
+                    stroke(0);
+                    strokeWeight(3 * scaleFactor);
+                    textSize(32 * scaleFactor);
+                    textAlign(CENTER, CENTER);
+                    textFont('Comic Neue');
+                    text('Game Over!', canvasWidth / 2, canvasHeight / 2 - 50 * scaleFactor);
+                    fill(0, 255, 0);
+                    rect(restartButton.x - restartButton.width / 2, restartButton.y - restartButton.height / 2, restartButton.width, restartButton.height, 10 * scaleFactor);
+                    fill(0);
+                    textSize(20 * scaleFactor);
+                    if (!isMobile) {
+                        text('Restart (R)', restartButton.x, restartButton.y);
+                    } else {
+                        text('Restart', restartButton.x, restartButton.y);
+                    }
+                    noStroke();
+                    setTimeout(() => {
+                        try {
+                            let ach = document.getElementById('achievements');
+                            ach.style.display = 'block';
+                            ach.style.position = 'absolute';
+                            ach.style.top = `${canvasHeight / 2 + 100 * scaleFactor}px`;
+                            ach.style.left = '50%';
+                            ach.style.transform = 'translateX(-50%)';
+                        } catch (e) {
+                            console.error("Achievements display error:", e);
+                        }
+                    }, 100);
+                }
+            } catch (e) {
+                console.error("Draw error:", e);
+            }
+        }
+
+        function handleTouchStart(event) {
+            try {
+                let touchTime = millis();
+                lastTouchTime = touchTime;
+                if (!gameOver && !isTransitioning && !gameWon) {
+                    for (let t of event.changedTouches) {
+                        let x = t.clientX * windowWidth / window.innerWidth;
+                        let y = t.clientY * windowHeight / window.innerHeight;
+                        if (!joystick.active && dist(x, y, joystick.x, joystick.y) < 30 * uiScaleFactor && !joystickTouchId) {
+
+                            joystick.active = true;
+                            joystickTouchId = t.identifier;
+                            joystick.startX = x;
+                            joystick.startY = y;
+                            joystick.touchId = t.identifier;
+                        }
+                        if (!shootButton.active && dist(x, y, shootButton.x, shootButton.y) < 25 * uiScaleFactor && !shootButtonTouchId) {
+                            shootButton.active = true;
+                            shootButtonTouchId = t.identifier;
+                            shootButton.touchId = t.identifier;
+                        }
+                    }
+                } else if (millis() - gameOverDelay > 300 || (gameWon && endingPhase === 'finalScreen')) {
+                    for (let t of event.changedTouches) {
+                        let x = t.clientX * windowWidth / window.innerWidth;
+                        let y = t.clientY * windowHeight / window.innerHeight;
+                                                                                             if (
+
+                            x > restartButton.x - restartButton.width / 2 &&
+                            x < restartButton.x + restartButton.width / 2 &&
+                            y > restartButton.y - restartButton.height / 2 &&
+                            y < restartButton.y + restartButton.height / 2 &&
+                            (millis() - gameOverDelay > 300)
+                        ) {
+                            resetGame();
+                        } else if (
+                            x > playAgainButton.x - playAgainButton.width / 2 &&
+                            x < playAgainButton.x + playAgainButton.width /  2 &&
+                            y > playAgainButton.y - playAgainButton.height / 2 &&
+                            y < playAgainButton.y + playAgainButton.height / 2 &&
+                            gameWon && endingPhase === 'finalScreen'
+                        ) {
+                            resetGame();
+                        }
+                    }
+                }
+                event.preventDefault();
+            } catch (e) {
+                console.error("Touch started error:", e);
+            }
+        }
+
+        function handleTouchMove(event) {
+            try {
+                let touchTime = millis();
+                lastTouchTime = touchTime;
+                if (joystick.active) {
+                    for (let t of event.changedTouches) {
+                        if (t.identifier === joystickTouchId) {
+                            let x = t.clientX * windowWidth / window.innerWidth;
+                            let y = t.clientY * windowHeight / window.innerHeight;
+                            if (dist(x, y, joystick.x, joystick.y) < 60 * uiScaleFactor) {
+                                joystick.startX = x;
+                                joystick.startY = y;
+                            }
+                        }
+                    }
+                }
+                event.preventDefault();
+            } catch (e) {
+                console.error("Touch moved error:", e);
+            }
+        }
+
+        function handleTouchEnd(event) {
+            try {
+                let touchTime = millis();
+                lastTouchTime = touchTime;
+                for (let t of event.changedTouches) {
+                    if (t.identifier === joystickTouchId) {
+                        joystick.active = false;
+                        joystickTouchId = null;
+                        joystick.touchId = null;
+                        joystick.startX = joystick.x;
+                        joystick.startY = joystick.y;
+                    }
+                    if (t.identifier === shootButtonTouchId) {
+                        shootButton.active = false;
+                        shootButtonTouchId = null;
+                        shootButton.touchId = null;
+                    }
+                }
+                event.preventDefault();
+            } catch (e) {
+                console.error("Touch ended error:", e);
+            }
+        }
+
+        // Declare globally at the top
+        let weaponUpgrades = [];
+        let shieldPickups = [];
+
+        function resetGame() {
+            // Reset all game state variables
+            initializeGame();
+            gameOver = false;
+            isTransitioning = false;
+            gameWon = false;
+            endingPhase = 'animation';
+            endingStartTime = 0;
+            gameOverDelay = 0;
+            // Hide overlays if present
+            if (document.getElementById('endScene')) {
+                document.getElementById('endScene').style.display = 'none';
+            }
+            if (document.getElementById('statsScene')) {
+                document.getElementById('statsScene').style.display = 'none';
+            }
+            // Resume music if needed
+            if (backgroundMusic && !backgroundMusic.isPlaying()) {
+                backgroundMusic.setVolume(0.15);
+                backgroundMusic.loop();
+            }
+        }
+
+        function touchStarted() {
+            initAudio(); // Start audio context and music/engine on first user tap (mobile safe)
+            return false;
+        }
+        function touchMoved() { return false; }
+        function touchEnded() { return false; }
+
+        // --- Achievement Check ---
+        // Handles unlocking achievements based on game stats
+        function checkAchievements() {
+            try {
+                // Ensure achievement elements exist before accessing
+                const acePilot = document.getElementById('ace-pilot');
+                const sharpShooter = document.getElementById('sharp-shooter');
+                const highScore = document.getElementById('high-score');
+                if (!acePilot || !sharpShooter || !highScore) return;
+
+                if (enemiesDefeated >= 10 && (millis() - gameStartTime) / 1000 < 30) {
+                    acePilot.classList.add('unlocked');
+                }
+                if (asteroidsDestroyed >= 5 && shotsFired === asteroidsDestroyed) {
+                    sharpShooter.classList.add('unlocked');
+                }
+                if (score >= 200) {
+                    highScore.classList.add('unlocked');
+                }
+            } catch (e) {
+                console.error("Achievements error:", e);
+            }
+        }
+    </script>
+</body>
+</html>
