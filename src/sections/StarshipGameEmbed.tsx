@@ -1,4 +1,4 @@
-import 'StarshipGameEmbed.css';
+import './StarshipGameEmbed.css';
 
 export default function StarshipGameEmbed() {
   const openGame = () => {

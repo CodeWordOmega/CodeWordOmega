@@ -84,7 +84,7 @@ const PortfolioMusic: React.FC = () => {
       <AudioToggle enabled={enabled} onToggle={handleToggle} />
       <audio
         ref={audioRef}
-        src="/starship-game/music/inception-inspired-dark-melodic-techno-mix-night-trains-155050.mp3"
+        src={`${import.meta.env.BASE_URL}starship-game/music/inception-inspired-dark-melodic-techno-mix-night-trains-155050.mp3`}
         autoPlay
         loop
         preload="auto"

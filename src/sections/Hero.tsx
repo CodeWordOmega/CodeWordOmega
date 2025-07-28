@@ -19,7 +19,7 @@ export default function Hero() {
           <animate attributeName="ry" values="60;80;60" dur="8s" repeatCount="indefinite" />
         </ellipse>
       </svg>
-      <img className="hero-logo" src="/CodeWordOmega/omega-logo.png" alt="Omega Logo" />
+      <img className="hero-logo" src={`${import.meta.env.BASE_URL}omega-logo.png`} alt="Omega Logo" />
       <h1>CodeWordOmega</h1>
       <p className="hero-real-name">(Jeffrey Lawson)</p>
       <h2>AI-Augmented Full Stack Developer | Web3 & Solana Blockchain</h2>
