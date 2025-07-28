@@ -1,6 +1,6 @@
 # CodeWordOmega Portfolio
 
-A modern, visually impressive portfolio website for a Full Stack Developer with Web3 and Solana blockchain experience. Built with React + Vite and inspired by [blaysloyality.com](https://www.blaysloyality.com).
+A modern, visually impressive portfolio website for a Full Stack Developer with Web3 and Solana blockchain experience. Built with React + Vite and inspired by [blaysloyalty.com](https://www.blaysloyalty.com).
 
 ---
 
