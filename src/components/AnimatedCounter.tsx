@@ -21,7 +21,7 @@ export default function AnimatedCounter({ end, duration = 1200, label }: { end: 
   return (
     <div className="animated-counter">
       <span className="counter-value">{count}</span>
-      <span className="counter-label">{label}</span>
+      <span className="animated-counter-label">{label}</span>
     </div>
   );
 }

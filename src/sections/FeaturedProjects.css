@@ -91,3 +91,48 @@
   background: #00ffa3;
   color: #181a20;
 }
+@media (max-width: 600px) {
+  .featured-projects {
+    width: 100%;
+    padding: 1.2rem 0.5rem 1rem 0.5rem;
+    border-radius: 1rem;
+    box-sizing: border-box;
+  }
+  .project-list {
+    flex-direction: column;
+    gap: 1.2rem;
+    align-items: center;
+  }
+  .project-card {
+    min-width: 0 !important;
+    width: 100%;
+    padding: 1.2rem 0.7rem 1rem 0.7rem;
+    box-sizing: border-box;
+  }
+  .project-card img {
+    max-width: 100%;
+    height: auto;
+  }
+  .project-filters {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .project-filters button {
+    font-size: 0.95rem;
+    padding: 0.4rem 1rem;
+  }
+  .project-card h3 {
+    font-size: 1rem;
+  }
+  .project-card p, .project-card ul {
+    font-size: 0.95rem;
+  }
+}
+@media (max-width: 600px) {
+  .featured-projects h2 {
+    white-space: nowrap;
+    font-size: 1.3rem; /* or your preferred size */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -1,0 +1,75 @@
+/* Light Theme: Daytime with clouds background */
+body[data-theme="light"] {
+  background: linear-gradient(180deg, #90dafe 0%, #e3f6ff 60%, #ffffff 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+body[data-theme="light"] .animated-bg-canvas {
+  /* Hide stars, show clouds */
+  display: none;
+}
+
+body[data-theme="light"] .section,
+body[data-theme="light"] .about-me,
+body[data-theme="light"] .featured-projects,
+body[data-theme="light"] .achievements,
+body[data-theme="light"] .skills,
+body[data-theme="light"] .education,
+body[data-theme="light"] .starship-embed-section,
+body[data-theme="light"] .how-it-works,
+body[data-theme="light"] .contact {
+  background: rgba(255,255,255,0.4);
+  color: #000 !important;
+  box-shadow: 0 4px 16px 0 #90dafe44;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+body[data-theme="light"] h1,
+body[data-theme="light"] h2,
+body[data-theme="light"] h3 {
+  color: #101820 !important; /* much darker */
+  font-weight: 700;
+}
+
+body[data-theme="light"] .timeline-dot,
+body[data-theme="light"] .skills-icon {
+  background: #b0e0ff;
+  box-shadow: 0 0 8px #b0e0ff88;
+}
+
+body[data-theme="light"] .hero-cta,
+body[data-theme="light"] .starship-btn,
+body[data-theme="light"] .contact-btn {
+  background: #b0e0ff;
+  color: #101820 !important; /* much darker */
+  border: 2px solid #101820; /* much darker */
+}
+
+/* Add more overrides as needed for each section */
+
+body[data-theme="light"] .hero,
+body[data-theme="light"] .section,
+body[data-theme="light"] .about-me,
+body[data-theme="light"] .achievements,
+body[data-theme="light"] .skills,
+body[data-theme="light"] .education,
+body[data-theme="light"] .starship-embed-section,
+body[data-theme="light"] .how-it-works,
+body[data-theme="light"] .contact {
+  color: #000 !important;
+}
+
+body[data-theme="light"] .hero *,
+body[data-theme="light"] .section * ,
+body[data-theme="light"] .about-me * ,
+body[data-theme="light"] .achievements * ,
+body[data-theme="light"] .skills * ,
+body[data-theme="light"] .education * ,
+body[data-theme="light"] .starship-embed-section * ,
+body[data-theme="light"] .how-it-works * ,
+body[data-theme="light"] .contact * {
+  color: #000 !important;
+}

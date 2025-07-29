@@ -44,5 +44,20 @@ export default function AnimatedBackground() {
     });
     return () => cancelAnimationFrame(animationId);
   }, []);
-  return <canvas ref={ref} className="animated-bg-canvas" style={{position:'fixed',zIndex:0,top:0,left:0,width:'100vw',height:'100vh',pointerEvents:'none'}} />;
+  return (
+  <canvas
+    ref={ref}
+    className="animated-bg-canvas"
+    style={{
+      position: 'fixed',
+      zIndex: 0,
+      top: 0,
+      left: 0,
+      width: '100vw',
+      height: '100dvh',
+      pointerEvents: 'none',
+      boxSizing: 'border-box'
+    }}
+  />
+);
 }

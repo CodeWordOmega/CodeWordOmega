@@ -1,4 +1,5 @@
 import './App.css';
+import './light-theme.css';
 import Hero from './sections/Hero';
 import AboutMe from './sections/AboutMe';
 import FeaturedProjects from './sections/FeaturedProjects';
@@ -8,7 +9,7 @@ import Education from './sections/Education';
 import HowItWorks from './sections/HowItWorks';
 import Testimonials from './sections/Testimonials';
 import Contact from './sections/Contact';
-import { ThemeProvider } from './theme';
+import { ThemeProvider, useTheme } from './theme';
 import ThemeToggle from './components/ThemeToggle';
 import AnimatedBackground from './components/AnimatedBackground';
 import SocialFloat from './components/SocialFloat';
@@ -19,6 +20,13 @@ import WelcomeModal from './components/WelcomeModal';
 
 function App() {
   const [entered, setEntered] = useState(false);
+  const { theme } = useTheme();
+
+  // This function will be called when the user clicks "Enter"
+  const handleEnter = () => {
+    setEntered(true);
+    window.dispatchEvent(new Event('playPortfolioAudio'));
+  };
 
   return (
     <ThemeProvider>
@@ -26,8 +34,14 @@ function App() {
       <AnimatedBackground />
       <ThemeToggle />
       <SocialFloat />
-      {!entered && <WelcomeModal onEnter={() => setEntered(true)} />}
-      <div className="portfolio-root-main" style={{ filter: !entered ? 'blur(6px)' : 'none', pointerEvents: !entered ? 'none' : 'auto' }}>
+      {!entered && <WelcomeModal onEnter={handleEnter} />}
+      <div
+        className="portfolio-root-main"
+        style={{
+          filter: !entered ? 'blur(6px)' : 'none',
+          pointerEvents: !entered ? 'none' : 'auto',
+        }}
+      >
         <Hero />
         <AboutMe />
         <FeaturedProjects />

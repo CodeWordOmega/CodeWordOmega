@@ -35,3 +35,29 @@
   color: #b0ffdf;
   font-size: 1.1rem;
 }
+@media (max-width: 600px) {
+  .how-it-works {
+    padding: 1.2rem 0.5rem 1rem 0.5rem;
+    border-radius: 1rem;
+  }
+  .how-it-works h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  .how-diagram {
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  .how-diagram img {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.7rem;
+    padding: 0.3rem;
+  }
+  .how-arrow {
+    font-size: 1.5rem;
+  }
+  .how-caption {
+    font-size: 0.95rem;
+  }
+}

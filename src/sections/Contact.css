@@ -39,3 +39,26 @@
   color: #b0ffdf;
   font-size: 1.1rem;
 }
+@media (max-width: 600px) {
+  .contact {
+    padding: 1.2rem 0.5rem 1rem 0.5rem;
+    border-radius: 1rem;
+  }
+  .contact h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  .contact-links {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+  .contact-btn {
+    font-size: 1rem;
+    padding: 0.7rem 1.2rem;
+    border-radius: 1.2rem;
+  }
+  .contact-footer {
+    font-size: 0.95rem;
+  }
+}

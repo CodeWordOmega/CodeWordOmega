@@ -1,7 +1,7 @@
 .audio-toggle {
   position: fixed;
   top: 18px;
-  left: 74px;
+  left: 18px;
   z-index: 1000;
   background: rgba(30, 0, 60, 0.85);
   border: none;

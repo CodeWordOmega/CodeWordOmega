@@ -34,3 +34,8 @@
     transform: translateY(0);
   }
 }
+.animated-counter-label {
+  display: block;
+  text-align: center;
+  white-space: normal;
+}

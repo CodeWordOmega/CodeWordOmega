@@ -23,3 +23,8 @@
   background: #00ffa3;
   color: #181a20;
 }
+.theme-toggle.dark {
+  background: #23272f;
+  color: #00ffa3;
+  border: none;
+}

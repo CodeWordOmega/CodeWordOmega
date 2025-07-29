@@ -61,7 +61,17 @@ const PortfolioMusic: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [enabled]);
-
+  useEffect(() => {
+    const playAudioHandler = () => {
+      if (enabled && audioRef.current) {
+        audioRef.current.muted = false;
+        audioRef.current.volume = 0.12;
+        audioRef.current.play().catch(() => {});
+      }
+    };
+    window.addEventListener('playPortfolioAudio', playAudioHandler);
+    return () => window.removeEventListener('playPortfolioAudio', playAudioHandler);
+}, [enabled]);
   // Toggle handler
   const handleToggle = () => {
     setEnabled((prev) => {

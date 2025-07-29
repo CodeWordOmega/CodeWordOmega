@@ -37,3 +37,29 @@
     min-height: 320px;
   }
 }
+@media (max-width: 600px) {
+  .starship-embed-section h2 {
+    white-space: nowrap;
+    font-size: 1.3rem; /* adjust as needed */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* ...existing mobile styles... */
+}
+.starship-btn {
+  background: #00ffa3;
+  color: #181a20;
+  padding: 0.8rem 2.2rem;
+  border-radius: 2rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-decoration: none;
+  box-shadow: 0 2px 8px 0 #00ffa388;
+  border: none;
+  transition: background 0.2s, color 0.2s;
+}
+.starship-btn:hover {
+  background: #181a20;
+  color: #00ffa3;
+  border: 2px solid #00ffa3;
+}
